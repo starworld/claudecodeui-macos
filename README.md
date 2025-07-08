@@ -1,10 +1,17 @@
 <div align="center">
   <img src="public/logo.svg" alt="Claude Code UI" width="64" height="64">
-  <h1>Claude Code UI</h1>
+  <h1>Claude Code UI - macOS Native App Edition</h1>
 </div>
 
+A desktop and mobile UI for [Claude Code](https://docs.anthropic.com/en/docs/claude-code), enhanced with **macOS native app integration**. This fork adds Dock support, menu bar status, and seamless mobile access.
 
-A desktop and mobile UI for [Claude Code](https://docs.anthropic.com/en/docs/claude-code), Anthropic's official CLI for AI-assisted coding. You can use it locally or remotely to view your active projects and sessions in claude code and make changes to them the same way you would do it in claude code CLI. This gives you a proper interface that works everywhere. 
+## 🎯 macOS Native Features
+
+- **🖥️ Dock App** - Launch directly from your Dock with ClaudeUI.app
+- **📊 Menu Bar Status** - Real-time status monitoring with SwiftBar
+- **📱 Mobile Ready** - Automatic IP detection for iPhone/iPad access
+- **🔄 Process Management** - PM2 integration for reliability
+- **⏰ Activity Logging** - Track all starts/stops with timestamps 
 
 ## Screenshots
 
@@ -44,15 +51,17 @@ A desktop and mobile UI for [Claude Code](https://docs.anthropic.com/en/docs/cla
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/) v16 or higher
+- macOS with Homebrew installed
+- [Node.js](https://nodejs.org/) v24.3.0 or higher
 - [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) installed and configured
+- PM2 (`npm install -g pm2`)
 
 ### Installation
 
 1. **Clone the repository:**
 ```bash
-git clone https://github.com/siteboon/claudecodeui.git
-cd claudecodeui
+git clone https://github.com/starworld/claudecodeui-macos.git
+cd claudecodeui-macos
 ```
 
 2. **Install dependencies:**
@@ -66,15 +75,41 @@ cp .env.example .env
 # Edit .env with your preferred settings
 ```
 
-4. **Start the application:**
+4. **Create macOS App (see IMPLEMENTATION_GUIDE.yaml for details):**
 ```bash
-# Development mode (with hot reload)
-npm run dev
-
+# Quick setup - check implementation guide for full instructions
+cat IMPLEMENTATION_GUIDE.yaml
 ```
 
-5. **Open your browser:**
-   - Development: `http://localhost:3001`
+5. **Start the application:**
+```bash
+# Using the start script
+./scripts/start-claude-ui.sh
+
+# Or directly with PM2
+pm2 start ecosystem.config.js
+```
+
+6. **Access the application:**
+   - Local: `http://localhost:3009`
+   - Mobile: Check console output for IP address
+
+### macOS Native Setup
+
+1. **Install SwiftBar for menu bar:**
+```bash
+brew install swiftbar
+# When prompted, select: ~/Library/Application Support/SwiftBar/Plugins
+```
+
+2. **Create Dock App:**
+   - Run commands from `IMPLEMENTATION_GUIDE.yaml` Phase 1
+   - Drag `/Applications/ClaudeUI.app` to your Dock
+
+3. **Menu Bar Features:**
+   - 🟢 CI = Running
+   - ⚪ CI = Stopped
+   - Click for quick actions
 
 ## Security & Tools Configuration
 
