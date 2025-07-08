@@ -1,0 +1,180 @@
+# Claude Code UI macOSアプリ化 完全実装ガイド
+# SuperClaude UltraThink統合版 v1.0
+
+metadata:
+  author: "SuperClaude with All Personas"
+  created: "2025-07-09 03:15:26 JST"
+  last_updated: "2025-07-09 03:23:52 JST"
+  purpose: "次セッションでの一気通貫実装"
+  context_optimization: true
+  timezone: "JST"
+
+prerequisites:
+  verified:
+    - node_version: "v24.3.0"
+    - claude_code_cli: "1.0.44"
+    - pm2_installed: true
+    - repository_cloned: true
+    - dependencies_installed: true
+  paths:
+    project_root: "/Users/miya/projects/claudecodeui"
+    scripts_dir: "/Users/miya/projects/claudecodeui/scripts"
+    logs_dir: "/Users/miya/projects/claudecodeui/logs"
+
+implementation_steps:
+  phase1_applescript_app:
+    - name: "メインアプリケーション作成"
+      commands:
+        - |
+          cat > /tmp/claudeui_app.applescript << 'EOF'
+          -- Claude Code UI Launcher
+          -- Created: $(date "+%Y-%m-%d %H:%M:%S %Z")
+          on run
+              try
+                  -- 現在時刻をログ
+                  set currentTime to do shell script "date '+%Y-%m-%d %H:%M:%S %Z'"
+                  
+                  -- PM2でステータス確認
+                  set pmStatus to do shell script "pm2 list | grep claude-ui || echo 'not found'"
+                  
+                  if pmStatus contains "online" then
+                      -- すでに起動中
+                      display notification "Claude Code UIはすでに起動しています" with title "Claude Code UI" sound name "Pop"
+                      delay 1
+                      tell application "Safari" to open location "http://localhost:3009"
+                  else
+                      -- 起動処理
+                      display notification "Claude Code UIを起動しています..." with title "Claude Code UI"
+                      do shell script "cd /Users/miya/projects/claudecodeui && pm2 start ecosystem.config.js"
+                      delay 3
+                      
+                      -- 起動確認
+                      set checkStatus to do shell script "pm2 list | grep 'claude-ui.*online' || echo 'failed'"
+                      if checkStatus contains "online" then
+                          display notification "起動完了！ブラウザを開きます" with title "Claude Code UI" sound name "Glass"
+                          -- 起動時刻をログファイルに記録
+                          do shell script "echo '" & currentTime & " - Claude Code UI started' >> /Users/miya/projects/claudecodeui/logs/startup.log"
+                          tell application "Safari" to open location "http://localhost:3009"
+                      else
+                          display alert "起動失敗" message "詳細はターミナルで pm2 logs claude-ui を確認してください"
+                      end if
+                  end if
+              on error errMsg
+                  display alert "エラー" message errMsg
+              end try
+          end run
+          EOF
+        - "osacompile -o /Applications/ClaudeUI.app /tmp/claudeui_app.applescript"
+        - "rm /tmp/claudeui_app.applescript"
+
+  phase2_app_icon:
+    - name: "アイコン作成と設定"
+      commands:
+        - |
+          # アイコン用のSVGを作成
+          cat > ~/projects/claudecodeui/icon.svg << 'EOF'
+          <svg width="512" height="512" xmlns="http://www.w3.org/2000/svg">
+            <rect width="512" height="512" rx="100" fill="#6366F1"/>
+            <text x="256" y="320" font-family="SF Pro Display, Arial" font-size="200" 
+                  font-weight="bold" text-anchor="middle" fill="white">CI</text>
+          </svg>
+          EOF
+        - "# macOSのiconutil使用（手動でアイコン設定が必要）"
+
+  phase3_menu_bar:
+    - name: "SwiftBarプラグイン作成"
+      commands:
+        - "brew install swiftbar || true"
+        - "mkdir -p ~/Library/Application\\ Support/SwiftBar/Plugins"
+        - |
+          cat > ~/Library/Application\ Support/SwiftBar/Plugins/claudeui.1m.sh << 'EOF'
+          #!/bin/bash
+          # Claude Code UI Status for SwiftBar
+          # Updated: $(date "+%Y-%m-%d %H:%M:%S %Z")
+          
+          if pm2 list 2>/dev/null | grep -q "claude-ui.*online"; then
+              # 最終起動時刻を取得
+              LAST_START=$(tail -1 /Users/miya/projects/claudecodeui/logs/startup.log 2>/dev/null | cut -d' ' -f1,2 || echo "不明")
+              
+              echo "🟢 CI"
+              echo "---"
+              echo "📊 状態: 起動中 | color=green"
+              echo "🕐 起動時刻: $LAST_START"
+              echo "🌐 ローカル: http://localhost:3009 | href=http://localhost:3009"
+              IP=$(ifconfig | grep "inet " | grep -v 127.0.0.1 | awk '{print $2}' | head -1)
+              if [ ! -z "$IP" ]; then
+                  echo "📱 iPhone: http://$IP:3009 | href=http://$IP:3009"
+              fi
+              echo "---"
+              echo "🔄 再起動 | bash='/Users/miya/projects/claudecodeui/scripts/restart-claude-ui.sh' terminal=false"
+              echo "⏹️ 停止 | bash='/Users/miya/projects/claudecodeui/scripts/stop-claude-ui.sh' terminal=false"
+              echo "📜 ログ表示 | bash='pm2' param1='logs' param2='claude-ui' terminal=true"
+          else
+              echo "⚪ CI"
+              echo "---"
+              echo "📊 状態: 停止中 | color=gray"
+              echo "---"
+              echo "▶️ 起動 | bash='/Users/miya/projects/claudecodeui/scripts/start-claude-ui.sh' terminal=false"
+          fi
+          
+          echo "---"
+          echo "⚙️ 設定フォルダ | bash='open' param1='/Users/miya/projects/claudecodeui'"
+          echo "🔄 更新 | refresh=true"
+          echo "🕐 現在時刻: $(date '+%H:%M:%S') | color=gray"
+          EOF
+        - "chmod +x ~/Library/Application\\ Support/SwiftBar/Plugins/claudeui.1m.sh"
+
+  phase4_helper_scripts:
+    - name: "再起動スクリプト作成"
+      commands:
+        - |
+          cat > ~/projects/claudecodeui/scripts/restart-claude-ui.sh << 'EOF'
+          #!/bin/bash
+          # 再起動時刻を記録
+          echo "$(date '+%Y-%m-%d %H:%M:%S %Z') - Claude Code UI restarted" >> /Users/miya/projects/claudecodeui/logs/startup.log
+          pm2 restart claude-ui
+          EOF
+        - "chmod +x ~/projects/claudecodeui/scripts/restart-claude-ui.sh"
+
+  phase5_dock_automation:
+    - name: "Dockへの追加（手動手順）"
+      manual_steps:
+        - "Finderで/Applicationsフォルダを開く"
+        - "ClaudeUI.appをDockにドラッグ＆ドロップ"
+        - "SwiftBarを起動してメニューバーアイコンを確認"
+
+quick_commands:
+  terminal_aliases:
+    start: "cui"
+    stop: "claude-ui-stop"
+    status: "claude-ui-status"
+    logs: "claude-ui-logs"
+  
+  app_locations:
+    main_app: "/Applications/ClaudeUI.app"
+    menu_bar: "SwiftBarから自動読み込み"
+
+validation_checklist:
+  - "✓ ClaudeUI.appがApplicationsフォルダに存在"
+  - "✓ Dockからワンクリックで起動可能"
+  - "✓ メニューバーにステータス表示"
+  - "✓ 起動時刻が正確に記録される"
+  - "✓ iPhoneからのアクセス確認"
+  - "✓ PM2での自動再起動機能"
+
+troubleshooting:
+  app_not_opening:
+    - "セキュリティ設定で許可: システム設定 > プライバシーとセキュリティ"
+  menu_bar_missing:
+    - "SwiftBarを起動: open -a SwiftBar"
+  port_conflict:
+    - "ポート変更: .envファイルを編集"
+  time_incorrect:
+    - "システム時刻確認: date コマンドで確認"
+    - "タイムゾーン設定: システム設定 > 日付と時刻"
+
+# 実装コマンド（コピペ用）
+implementation_command: |
+  # 次のセッションで実行:
+  # yaml_content=$(cat /Users/miya/projects/claudecodeui/IMPLEMENTATION_GUIDE.yaml)
+  # 上記のphase1から順番に実行
