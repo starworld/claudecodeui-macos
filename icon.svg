@@ -1,5 +1,1 @@
-<svg width="512" height="512" xmlns="http://www.w3.org/2000/svg">
-  <rect width="512" height="512" rx="100" fill="#6366F1"/>
-  <text x="256" y="320" font-family="SF Pro Display, Arial" font-size="200" 
-        font-weight="bold" text-anchor="middle" fill="white">CI</text>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512"><rect width="512" height="512" fill="#6366F1" rx="100"/><text x="256" y="320" fill="#fff" font-family="SF Pro Display, Arial" font-size="200" font-weight="bold" text-anchor="middle">CI</text></svg>
